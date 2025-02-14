@@ -9,7 +9,6 @@ const initialState = {
   editingIndex: null,
   editText: '',
   editDueDate: '',
-  commentText: '',
 };
 
 const reducer = (state, action) => {
@@ -61,16 +60,22 @@ const reducer = (state, action) => {
         editDueDate: '',
       };
     case 'SET_COMMENT_TEXT':
-      return { ...state, commentText: action.payload };
+      return {
+        ...state,
+        todos: state.todos.map((todo, index) =>
+          index === action.payload.index
+            ? { ...todo, commentText: action.payload.commentText }
+            : todo
+        ),
+      };
     case 'ADD_COMMENT':
       return {
         ...state,
         todos: state.todos.map((todo, index) =>
           index === action.payload.index
-            ? { ...todo, comments: [...(todo.comments || []), action.payload.comment] }
+            ? { ...todo, comments: [...(todo.comments || []), action.payload.comment], commentText: '' }
             : todo
         ),
-        commentText: '',
       };
     default:
       return state;
@@ -86,7 +91,7 @@ const TodoApp = () => {
       if (state.input.trim() !== '' && state.dueDate) {
         dispatch({
           type: 'ADD_TODO',
-          payload: { text: state.input, dueDate: state.dueDate, completed: false, id: Date.now(), comments: [] },
+          payload: { text: state.input, dueDate: state.dueDate, completed: false, id: Date.now(), comments: [], commentText: '' },
         });
       }
     },
@@ -122,17 +127,25 @@ const TodoApp = () => {
     []
   );
 
+  const setCommentText = useCallback(
+    (index, commentText) => {
+      dispatch({ type: 'SET_COMMENT_TEXT', payload: { index, commentText } });
+    },
+    []
+  );
+
   const addComment = useCallback(
     (index, e) => {
       e.preventDefault();
-      if (state.commentText.trim() !== '') {
+      const commentText = state.todos[index].commentText;
+      if (commentText.trim() !== '') {
         dispatch({
           type: 'ADD_COMMENT',
-          payload: { index, comment: state.commentText },
+          payload: { index, comment: commentText },
         });
       }
     },
-    [state.commentText]
+    [state.todos]
   );
 
   return (
@@ -171,33 +184,35 @@ const TodoApp = () => {
         </form>
       )}
 
-      <ul>
-        {state.todos.map((todo, index) => (
-          <li key={todo.id} style={{ textDecoration: todo.completed ? 'line-through' : '' }}>
-            <span onClick={() => toggleTodo(index)}>{todo.text}</span>
-            <span> (Due: {todo.dueDate})</span>
-            <div>
-              <button onClick={() => startEdit(index)}>Edit</button>
-              <button onClick={() => deleteTodo(index)}>Delete</button>
-              <button onClick={() => toggleTodo(index)}>{todo.completed ? 'Undo' : 'Completed'}</button>
-            </div>
-            <ul>
-              {todo.comments && todo.comments.map((comment, i) => (
-                <li key={i}>{comment}</li>
-              ))}
-            </ul>
-            <form onSubmit={(e) => addComment(index, e)}>
-              <input
-                type="text"
-                value={state.commentText}
-                onChange={(e) => dispatch({ type: 'SET_COMMENT_TEXT', payload: e.target.value })}
-                placeholder="Add a comment"
-              />
-              <button type="submit">Add Comment</button>
-            </form>
-          </li>
-        ))}
-      </ul>
+      <div className="tasks-container">
+        <ul>
+          {state.todos.map((todo, index) => (
+            <li key={todo.id} style={{ textDecoration: todo.completed ? 'line-through' : '' }}>
+              <span onClick={() => toggleTodo(index)}>{todo.text}</span>
+              <span> (Due: {todo.dueDate})</span>
+              <div>
+                <button onClick={() => startEdit(index)}>Edit</button>
+                <button onClick={() => deleteTodo(index)}>Delete</button>
+                <button onClick={() => toggleTodo(index)}>{todo.completed ? 'Undo' : 'Completed'}</button>
+              </div>
+              <ul>
+                {todo.comments && todo.comments.map((comment, i) => (
+                  <li key={i}>{comment}</li>
+                ))}
+              </ul>
+              <form onSubmit={(e) => addComment(index, e)}>
+                <input
+                  type="text"
+                  value={todo.commentText}
+                  onChange={(e) => setCommentText(index, e.target.value)}
+                  placeholder="Add a comment"
+                />
+                <button type="submit">Add Comment</button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 };
@@ -210,6 +225,7 @@ TodoApp.propTypes = {
       completed: PropTypes.bool.isRequired,
       id: PropTypes.number.isRequired,
       comments: PropTypes.arrayOf(PropTypes.string),
+      commentText: PropTypes.string,
     })
   ),
   input: PropTypes.string,
@@ -217,7 +233,6 @@ TodoApp.propTypes = {
   editingIndex: PropTypes.number,
   editText: PropTypes.string,
   editDueDate: PropTypes.string,
-  commentText: PropTypes.string,
 };
 
 export default TodoApp;
