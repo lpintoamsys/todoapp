@@ -1,238 +1,251 @@
-import React, { useReducer, useCallback } from 'react';
-import PropTypes from 'prop-types';
-import './App.css'; // Import the CSS file
+import React, { useReducer } from 'react';
+import './App.css';
 
 const initialState = {
   todos: [],
-  input: '',
-  dueDate: '',
-  editingIndex: null,
-  editText: '',
-  editDueDate: '',
+  input: "",
+  dueDate: "",
+  priority: "Medium",
+  category: "General",
+  editMode: false,
+  editId: null,
+  searchQuery: "",
+  filterPriority: "All", 
+  filterCategory: "All",
+  comments: [],
+  commentInput: "",
+  commentMode: false,
+  commentId: null
 };
 
 const reducer = (state, action) => {
   switch (action.type) {
-    case 'SET_INPUT':
+    case "SET_INPUT":
       return { ...state, input: action.payload };
-    case 'SET_DUE_DATE':
+    case "SET_DUE_DATE": 
       return { ...state, dueDate: action.payload };
-    case 'ADD_TODO':
+    case "SET_PRIORITY":
+      return { ...state, priority: action.payload };
+    case "SET_CATEGORY":
+      return { ...state, category: action.payload };
+    case "SET_SEARCH_QUERY":
+      return { ...state, searchQuery: action.payload };
+    case "SET_FILTER_PRIORITY":
+      return { ...state, filterPriority: action.payload };
+    case "SET_FILTER_CATEGORY": 
+      return { ...state, filterCategory: action.payload };
+    case "START_EDIT":
+      const todoToEdit = state.todos.find(todo => todo.id === action.payload);
       return {
         ...state,
-        todos: [...state.todos, action.payload],
-        input: '',
-        dueDate: '',
+        editMode: true,
+        editId: action.payload,
+        input: todoToEdit.text,
+        dueDate: todoToEdit.dueDate,
+        priority: todoToEdit.priority,
+        category: todoToEdit.category
       };
-    case 'TOGGLE_TODO':
+    case "CANCEL_EDIT":
       return {
         ...state,
-        todos: state.todos.map((todo, index) =>
-          index === action.payload ? { ...todo, completed: !todo.completed } : todo
+        editMode: false,
+        editId: null,
+        input: "",
+        dueDate: "",
+        priority: "Medium",
+        category: "General"
+      };
+    case "UPDATE_TODO":
+      return {
+        ...state,
+        todos: state.todos.map(todo =>
+          todo.id === state.editId ? {
+            ...todo,
+            text: state.input,
+            dueDate: state.dueDate,
+            priority: state.priority,
+            category: state.category
+          } : todo
         ),
+        editMode: false,
+        editId: null,
+        input: "",
+        dueDate: "",
+        priority: "Medium",
+        category: "General"
       };
-    case 'DELETE_TODO':
+    case "ADD_TODO":
       return {
         ...state,
-        todos: state.todos.filter((_, index) => index !== action.payload),
+        todos: [
+          ...state.todos,
+          {
+            text: state.input,
+            dueDate: state.dueDate,
+            priority: state.priority,
+            category: state.category,
+            completed: false,
+            id: Date.now()
+          }
+        ],
+        input: "",
+        dueDate: "",
+        priority: "Medium",
+        category: "General"
       };
-    case 'START_EDIT':
+    case "TOGGLE_COMPLETE":
       return {
         ...state,
-        editingIndex: action.payload,
-        editText: state.todos[action.payload].text,
-        editDueDate: state.todos[action.payload].dueDate,
+        todos: state.todos.map(todo =>
+          todo.id === action.payload ? { ...todo, completed: !todo.completed } : todo
+        )
       };
-    case 'SET_EDIT_TEXT':
-      return { ...state, editText: action.payload };
-    case 'SET_EDIT_DUE_DATE':
-      return { ...state, editDueDate: action.payload };
-    case 'SAVE_EDIT':
+    case "DELETE_TODO":
       return {
         ...state,
-        todos: state.todos.map((todo, index) =>
-          index === state.editingIndex
-            ? { ...todo, text: state.editText, dueDate: state.editDueDate }
-            : todo
-        ),
-        editingIndex: null,
-        editText: '',
-        editDueDate: '',
+        todos: state.todos.filter(todo => todo.id !== action.payload)
       };
-    case 'SET_COMMENT_TEXT':
-      return {
-        ...state,
-        todos: state.todos.map((todo, index) =>
-          index === action.payload.index
-            ? { ...todo, commentText: action.payload.commentText }
-            : todo
-        ),
-      };
-    case 'ADD_COMMENT':
-      return {
-        ...state,
-        todos: state.todos.map((todo, index) =>
-          index === action.payload.index
-            ? { ...todo, comments: [...(todo.comments || []), action.payload.comment], commentText: '' }
-            : todo
-        ),
-      };
+      case "ADD_COMMENT":
+        return {
+          ...state,
+          todos: state.todos.map(todo =>
+            todo.id === action.payload.todoId
+              ? {
+                  ...todo,
+                  comments: [...todo.comments, {
+                    id: Date.now(),
+                    text: action.payload.comment,
+                    timestamp: new Date().toISOString()
+                  }]
+                }
+              : todo
+          )
+        };
     default:
       return state;
   }
 };
 
-const TodoApp = () => {
+function TodoApp() {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const { 
+    todos, 
+    input, 
+    dueDate, 
+    priority, 
+    category, 
+    editMode,
+    searchQuery,
+    filterPriority,
+    filterCategory 
+  } = state;
 
-  const addTodo = useCallback(
-    (e) => {
-      e.preventDefault();
-      if (state.input.trim() !== '' && state.dueDate) {
-        dispatch({
-          type: 'ADD_TODO',
-          payload: { text: state.input, dueDate: state.dueDate, completed: false, id: Date.now(), comments: [], commentText: '' },
-        });
-      }
-    },
-    [state.input, state.dueDate]
-  );
-
-  const toggleTodo = useCallback(
-    (index) => {
-      dispatch({ type: 'TOGGLE_TODO', payload: index });
-    },
-    []
-  );
-
-  const deleteTodo = useCallback(
-    (index) => {
-      dispatch({ type: 'DELETE_TODO', payload: index });
-    },
-    []
-  );
-
-  const startEdit = useCallback(
-    (index) => {
-      dispatch({ type: 'START_EDIT', payload: index });
-    },
-    []
-  );
-
-  const saveEdit = useCallback(
-    (e) => {
-      e.preventDefault();
-      dispatch({ type: 'SAVE_EDIT' });
-    },
-    []
-  );
-
-  const setCommentText = useCallback(
-    (index, commentText) => {
-      dispatch({ type: 'SET_COMMENT_TEXT', payload: { index, commentText } });
-    },
-    []
-  );
-
-  const addComment = useCallback(
-    (index, e) => {
-      e.preventDefault();
-      const commentText = state.todos[index].commentText;
-      if (commentText.trim() !== '') {
-        dispatch({
-          type: 'ADD_COMMENT',
-          payload: { index, comment: commentText },
-        });
-      }
-    },
-    [state.todos]
-  );
+  const filteredTodos = todos
+    .filter(todo => todo.text.toLowerCase().includes(searchQuery.toLowerCase()))
+    .filter(todo => filterPriority === "All" ? true : todo.priority === filterPriority)
+    .filter(todo => filterCategory === "All" ? true : todo.category === filterCategory);
 
   return (
     <div className="container">
-      <h1>Todo Application</h1>
+      <h1>Todo List</h1>
+      
+      <input
+        type="text"
+        value={input}
+        onChange={e => dispatch({ type: "SET_INPUT", payload: e.target.value })}
+        placeholder="Enter task"
+      />
+      
+      <input
+        type="date"
+        value={dueDate}
+        onChange={e => dispatch({ type: "SET_DUE_DATE", payload: e.target.value })}
+      />
+      
+      <select 
+        value={priority}
+        onChange={e => dispatch({ type: "SET_PRIORITY", payload: e.target.value })}
+      >
+        <option value="Low">Low</option>
+        <option value="Medium">Medium</option>
+        <option value="High">High</option>
+      </select>
 
-      {state.editingIndex !== null ? (
-        <form onSubmit={saveEdit}>
-          <input
-            type="text"
-            value={state.editText}
-            onChange={(e) => dispatch({ type: 'SET_EDIT_TEXT', payload: e.target.value })}
-            placeholder="Edit todo"
-          />
-          <input
-            type="date"
-            value={state.editDueDate}
-            onChange={(e) => dispatch({ type: 'SET_EDIT_DUE_DATE', payload: e.target.value })}
-          />
-          <button type="submit">Save</button>
-        </form>
-      ) : (
-        <form onSubmit={addTodo}>
-          <input
-            type="text"
-            value={state.input}
-            onChange={(e) => dispatch({ type: 'SET_INPUT', payload: e.target.value })}
-            placeholder="Add a new todo"
-          />
-          <input
-            type="date"
-            value={state.dueDate}
-            onChange={(e) => dispatch({ type: 'SET_DUE_DATE', payload: e.target.value })}
-          />
-          <button type="submit">Add</button>
-        </form>
+      <select
+        value={category}
+        onChange={e => dispatch({ type: "SET_CATEGORY", payload: e.target.value })}
+      >
+        <option value="General">General</option>
+        <option value="Work">Work</option>
+        <option value="Personal">Personal</option>
+      </select>
+
+      <button onClick={() => {
+        if (editMode) {
+          dispatch({ type: "UPDATE_TODO" });
+        } else {
+          dispatch({ type: "ADD_TODO" });
+        }
+      }}>
+        {editMode ? "Update Task" : "Add Task"}
+      </button>
+
+      {editMode && (
+        <button onClick={() => dispatch({ type: "CANCEL_EDIT" })}>
+          Cancel Edit
+        </button>
       )}
 
-      <div className="tasks-container">
-        <ul>
-          {state.todos.map((todo, index) => (
-            <li key={todo.id} style={{ textDecoration: todo.completed ? 'line-through' : '' }}>
-              <span onClick={() => toggleTodo(index)}>{todo.text}</span>
-              <span> (Due: {todo.dueDate})</span>
-              <div>
-                <button onClick={() => startEdit(index)}>Edit</button>
-                <button onClick={() => deleteTodo(index)}>Delete</button>
-                <button onClick={() => toggleTodo(index)}>{todo.completed ? 'Undo' : 'Completed'}</button>
-              </div>
-              <ul>
-                {todo.comments && todo.comments.map((comment, i) => (
-                  <li key={i}>{comment}</li>
-                ))}
-              </ul>
-              <form onSubmit={(e) => addComment(index, e)}>
-                <input
-                  type="text"
-                  value={todo.commentText}
-                  onChange={(e) => setCommentText(index, e.target.value)}
-                  placeholder="Add a comment"
-                />
-                <button type="submit">Add Comment</button>
-              </form>
-            </li>
-          ))}
-        </ul>
-      </div>
+      <input
+        type="text"
+        value={searchQuery}
+        onChange={e => dispatch({ type: "SET_SEARCH_QUERY", payload: e.target.value })}
+        placeholder="Search tasks..."
+      />
+
+      <select
+        value={filterPriority}
+        onChange={e => dispatch({ type: "SET_FILTER_PRIORITY", payload: e.target.value })}
+      >
+        <option value="All">All Priorities</option>
+        <option value="Low">Low</option>
+        <option value="Medium">Medium</option>
+        <option value="High">High</option>
+      </select>
+
+      <select
+        value={filterCategory}
+        onChange={e => dispatch({ type: "SET_FILTER_CATEGORY", payload: e.target.value })}
+      >
+        <option value="All">All Categories</option>
+        <option value="General">General</option>
+        <option value="Work">Work</option>
+        <option value="Personal">Personal</option>
+      </select>
+
+      <ul>
+        {filteredTodos.map(todo => (
+
+          <li key={todo.id} className={`priority-${todo.priority.toLowerCase()}`}>
+            <input
+              type="checkbox"
+              checked={todo.completed}
+              onChange={() => dispatch({ type: "TOGGLE_COMPLETE", payload: todo.id })}
+            />
+            <span style={{ textDecoration: todo.completed ? 'line-through' : 'none' }}>
+              {todo.text} - Due: {todo.dueDate} - Priority: {todo.priority} - Category: {todo.category}
+            </span>
+            <button onClick={() => dispatch({ type: "START_EDIT", payload: todo.id })}>
+              Edit
+            </button>
+            <button onClick={() => dispatch({ type: "DELETE_TODO", payload: todo.id })}>
+              Delete
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
-};
-
-TodoApp.propTypes = {
-  todos: PropTypes.arrayOf(
-    PropTypes.shape({
-      text: PropTypes.string.isRequired,
-      dueDate: PropTypes.string.isRequired,
-      completed: PropTypes.bool.isRequired,
-      id: PropTypes.number.isRequired,
-      comments: PropTypes.arrayOf(PropTypes.string),
-      commentText: PropTypes.string,
-    })
-  ),
-  input: PropTypes.string,
-  dueDate: PropTypes.string,
-  editingIndex: PropTypes.number,
-  editText: PropTypes.string,
-  editDueDate: PropTypes.string,
-};
+}
 
 export default TodoApp;
